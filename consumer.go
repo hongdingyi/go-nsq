@@ -1128,6 +1128,9 @@ func (r *Consumer) AddConcurrentHandlers(handler Handler, concurrency int) {
 func (r *Consumer) handlerLoop(handler Handler) {
 	r.log(LogLevelDebug, "starting Handler")
 
+	tryNum := 0
+	tryNumLimit := 3
+
 	for {
 		message, ok := <-r.incomingMessages
 		if !ok {
@@ -1141,9 +1144,13 @@ func (r *Consumer) handlerLoop(handler Handler) {
 
 		err := handler.HandleMessage(message)
 		if err != nil {
-			r.log(LogLevelError, "Handler returned error (%s) for msg %s", err, message.ID)
-			if !message.IsAutoResponseDisabled() {
+			if !message.IsAutoResponseDisabled() && tryNum != tryNumLimit{
 				message.Requeue(-1)
+				tryNum ++
+			}else{
+				r.log(LogLevelError, "Handler returned error (%s) for msgID:%s,mssBody:%s", err, message.ID, message.Body)
+				message.Finish()
+				tryNum = 0
 			}
 			continue
 		}
@@ -1159,7 +1166,6 @@ exit:
 		r.exit()
 	}
 }
-
 func (r *Consumer) shouldFailMessage(message *Message, handler interface{}) bool {
 	// message passed the max number of attempts
 	if r.config.MaxAttempts > 0 && message.Attempts > r.config.MaxAttempts {
