@@ -1,4 +1,4 @@
-module youme.im/github.com/hongdingyi/go-nsq
+module github.com/hongdingyi/go-nsq
 
 go 1.15
 
